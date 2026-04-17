@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Renta de Películas</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+
+<nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+  <div class="container-fluid">
+    <a class="navbar-brand" href="../index.html">CinePlus</a>
+    <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+      <span class="navbar-toggler-icon"></span>
+    </button>
+    <div class="collapse navbar-collapse" id="navbarNav">
+      <ul class="navbar-nav ms-auto">
+        <li class="nav-item"><a class="nav-link" href="../index.html">Inicio</a></li>
+        <li class="nav-item"><a class="nav-link active" href="renta.html">Rentar</a></li>
+        <li class="nav-item"><a class="nav-link" href="contacto.html">Contacto</a></li>
+      </ul>
+    </div>
+  </div>
+</nav>
+
+<div class="container mt-5">
+  <h2>🎬 Renta de Películas</h2>
+
+  <div id="debug" class="alert alert-info">Iniciando...</div>
+
+  <form id="form-renta">
+    <div class="mb-3">
+      <label>👤 Nombre del cliente:</label>
+      <input type="text" id="cliente" class="form-control" placeholder="Ej: Juan Pérez">
+    </div>
+
+    <div class="mb-3">
+      <label>🎬 Selecciona películas:</label>
+      <div id="lista-peliculas" class="border p-3" style="min-height: 150px;">
+        <div class="spinner-border"></div> Cargando...
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label>📅 Días de renta:</label>
+      <input type="number" id="dias" class="form-control" min="1" value="1">
+    </div>
+
+    <div class="mb-3">
+      <label>💳 Forma de pago:</label>
+      <select id="pago" class="form-control">
+        <option value="">Selecciona...</option>
+        <option>Tarjeta de Crédito</option>
+        <option>Tarjeta de Débito</option>
+        <option>Efectivo</option>
+      </select>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Calcular</button>
+  </form>
+
+  <div id="preview" class="mt-3"></div>
+</div>
+
+<div class="modal fade" id="modalResultado" tabindex="-1">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-success text-white">
+        <h5>Resumen de compra</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body" id="resultado"></div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer class="bg-dark text-center text-white py-3 mt-5">
+  <small>&copy; 2024 CinePlus. Todos los derechos reservados.</small>
+</footer>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+
+<script>
+$(document).ready(function() {
+  $("#debug").html("✅ jQuery funcionando. Intentando cargar JSON...");
+  
+  function cargarJSON(ruta) {
+    $("#debug").html("⏳ Probando ruta: " + ruta);
+    
+    $.ajax({
+      url: ruta,
+      method: "GET",
+      dataType: "json",
+      success: function(data) {
+        $("#debug").html("✅ ¡JSON encontrado en: " + ruta + "! (" + data.length + " películas)");
+        mostrarPeliculas(data);
+      },
+      error: function() {
+        $("#debug").html("❌ Falló ruta: " + ruta);
+        return false;
+      }
+    });
+  }
+  
+  function mostrarPeliculas(peliculas) {
+    let html = "";
+    
+    peliculas.forEach(function(peli) {
+      const hoy = new Date();
+      const fechaEstreno = new Date(peli.estreno);
+      const precio = hoy < fechaEstreno ? peli.precios.estreno : peli.precios.normal;
+      const esEstreno = hoy < fechaEstreno;
+      
+      html += `
+        <div class="form-check mb-2">
+          <input class="form-check-input pelicula" type="checkbox" 
+                 value="${precio}" data-titulo="${peli.titulo}" id="peli${peli.id}">
+          <label class="form-check-label" for="peli${peli.id}">
+            <strong>${peli.titulo}</strong>
+            ${esEstreno ? '<span class="badge bg-danger">🔥 ESTRENO</span>' : ''}
+            - <strong>$${precio}/día</strong>
+          </label>
+        </div>
+      `;
+    });
+    
+    $("#lista-peliculas").html(html);
+    
+    $(".pelicula").on("change", calcularEnVivo);
+    $("#dias").on("change keyup", calcularEnVivo);
+  }
+  
+  function calcularEnVivo() {
+    let total = 0;
+    let seleccionadas = [];
+    
+    $(".pelicula:checked").each(function() {
+      const precio = parseFloat($(this).val());
+      total += precio;
+      seleccionadas.push($(this).data("titulo"));
+    });
+    
+    const dias = parseInt($("#dias").val()) || 0;
+    const totalFinal = total * dias;
+    
+    if (seleccionadas.length > 0 && dias > 0) {
+      $("#preview").html(`
+        <div class="alert alert-info">
+          <strong>💰 Total estimado: $${totalFinal.toFixed(2)}</strong><br>
+          Películas: ${seleccionadas.join(", ")}<br>
+          Días: ${dias}
+        </div>
+      `);
+    } else {
+      $("#preview").html('<div class="alert alert-secondary">Selecciona películas y días para ver el total</div>');
+    }
+  }
+  
+  setTimeout(function() {
+    cargarJSON("../data/data/peliculas.json");
+    
+    setTimeout(function() {
+      if ($("#lista-peliculas").html().indexOf("form-check") === -1) {
+        cargarJSON("../data/peliculas.json");
+      }
+    }, 2000);
+  }, 500);
+  
+  $("#form-renta").submit(function(e) {
+    e.preventDefault();
+    
+    const cliente = $("#cliente").val().trim();
+    if (!cliente) {
+      alert("Ingresa tu nombre");
+      return;
+    }
+    
+    let total = 0;
+    let seleccionadas = [];
+    
+    $(".pelicula:checked").each(function() {
+      total += parseFloat($(this).val());
+      seleccionadas.push({
+        titulo: $(this).data("titulo"),
+        precio: parseFloat($(this).val())
+      });
+    });
+    
+    if (seleccionadas.length === 0) {
+      alert("Selecciona al menos una película");
+      return;
+    }
+    
+    const dias = parseInt($("#dias").val()) || 0;
+    const totalFinal = total * dias;
+    const pago = $("#pago").val();
+    
+    if (!pago) {
+      alert("Selecciona forma de pago");
+      return;
+    }
+    
+    let resumen = `<h5>Resumen para: ${cliente}</h5><hr><ul>`;
+    seleccionadas.forEach(p => {
+      resumen += `<li>${p.titulo} - $${p.precio} x ${dias} días = <strong>$${(p.precio * dias).toFixed(2)}</strong></li>`;
+    });
+    resumen += `</ul><hr>`;
+    resumen += `<h4 class="text-success">💰 TOTAL: $${totalFinal.toFixed(2)}</h4>`;
+    resumen += `<p><strong>Forma de pago:</strong> ${pago}</p>`;
+    
+    $("#resultado").html(resumen);
+    new bootstrap.Modal(document.getElementById('modalResultado')).show();
+  });
+});
+</script>
+
+</body>
+</html>
